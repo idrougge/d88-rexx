@@ -136,11 +136,13 @@ call getsector
 return
 
 dumpsector:
-call getsector
 say 'Dumpar sektor:'
-say hexstr(readch(file,sectorsize))
+say hexstr(readsector)
 return
 
+readsector:
+call getsector
+return readch(file,sectorsize)
 
 /*
 	Read sector and show information
