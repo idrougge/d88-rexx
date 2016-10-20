@@ -42,6 +42,13 @@ fats.='ERR'; fats.FF='TOM'; fats.FE='SYS'
 call getsector
 sector=readch(file,sectorsize)
 cluster#=0
+return
+
+readfat__:
+fats.='ERR'; fats.FF='TOM'; fats.FE='SYS'
+call getsector
+sector=readch(file,sectorsize)
+cluster#=0
 do sectorsize
 	parse var sector cluster +1 sector
 	cluster=c2x(cluster)
@@ -119,6 +126,9 @@ say 'Hämtar offset till sektor' arg(1)
 call seek file,trackoffset,'BEGIN'
 return (16+sectorsize)*sector# 
 
+/*
+	Jump to track and read first sector info
+*/
 readtrack:
 trackoffset=arg(1)
 say 'Söker till position' seek(file,trackoffset,'BEGIN')
@@ -131,6 +141,10 @@ say 'Dumpar sektor:'
 say hexstr(readch(file,sectorsize))
 return
 
+
+/*
+	Read sector and show information
+*/
 getsector:
 header=readch(file,16)
 say 'Spårheader:' hexstr(header)
@@ -150,10 +164,12 @@ say 'Nästa spår:' sectorcount*sectorsize+sectorcount*16+688
 */
 return
 
+/* Endian swap */
 revendian: procedure
 parse value arg(1) with a +1 b +1 c +1 d+1 .
 return d || c || b || a
 
+/* Prettyprint char as hex */
 hexstr: procedure
 in=c2x(arg(1))
 out='$'
@@ -163,11 +179,13 @@ do while in~=''
 end
 return strip(out)
 
+/* LSR */
 shiftright: procedure
 binstr=c2b(arg(1))
 binstr = '0' || left(binstr,length(binstr)-1)
 return b2c(binstr)
 
+/* ROR */
 rotateright: procedure
 binstr=c2b(arg(1))
 binstr = right(binstr,1) || left(binstr,length(binstr)-1)
