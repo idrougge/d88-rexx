@@ -3,6 +3,8 @@
 options AREXX_BIFS
 options AREXX_SEMANTICS
 filename=arg(1)
+if filename='' then filename='/Users/iggy/Downloads/NEC PC 8801 [TOSEC]/NEC PC-8801 - Applications (TOSEC-v2007-08-30_CM)/NEC PC-8801FE N88 BASIC v2.3 (1988)(Microsoft).d88'
+say 'fil:' filename
 if ~open(file,filename,'READ') then do
 	say 'Kunde inte öppna fil!'
 	exit 10
@@ -22,7 +24,7 @@ say 'Typ av diskett:' disktypes.disktype
 disksize=revendian(disksize)
 say 'Diskens storlek:' c2d(disksize) '$'c2x(disksize)
 fattrack=37 /* 35 på 2HD */
-trkoffset=gettrackoffset(37)
+trkoffset=gettrackoffset(fattrack)
 call readtrack trkoffset
 /*
 call seek file,getsectoroffset(1)
@@ -30,18 +32,49 @@ call dumpsector
 */
 call seek file,getsectoroffset(1)
 call readdir
+
+fat.=''
+call parsefat getfat()
 exit
+fat=getfat()
+
 call seek file,getsectoroffset(14)
 call dumpsector
-call seek file,getsectoroffset(14)
-call readfat
 exit
+call seek file,getsectoroffset(14)
+exit
+
+cluster2physical: procedure
+/* Ett cluster = 8 sektorer
+   Ett spår = 16 sektorer
+   Cluster 0 = spår 0, sektor 1-8
+   Cluster 1 = spår 0, sektor 9-16
+   Cluster 2 = spår 1, sektor 1-8
+   o s v ... */
+cluster = arg(1)
+track = cluster % 2
+sector = 9 * (cluster // 2)
+return track sector
+
+getfat:
+call seek file,getsectoroffset(14)
+return readsector()
+
+parsefat: procedure expose fat.
+fat=arg(1)
+do i=0 to 255
+	parse var fat nr +1 fat
+	j=right(d2x(i),2,0)
+	fat.j=c2x(nr)
+end
+return
 
 readfat:
 fats.='ERR'; fats.FF='TOM'; fats.FE='SYS'
 call getsector
 sector=readch(file,sectorsize)
 cluster#=0
+dumpsector
 return
 
 readfat__:
@@ -137,7 +170,7 @@ return
 
 dumpsector:
 say 'Dumpar sektor:'
-say hexstr(readsector)
+say hexstr( readsector() )
 return
 
 readsector:
