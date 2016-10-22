@@ -34,7 +34,10 @@ call seek file,getsectoroffset(1)
 call readdir
 
 fat.=''
+files.=''
 call parsefat getfat()
+
+
 exit
 fat=getfat()
 
@@ -53,6 +56,7 @@ cluster2physical: procedure
    o s v ... */
 cluster = arg(1)
 track = cluster % 2
+/* track = shiftright(cluster) */
 sector = 9 * (cluster // 2)
 return track sector
 
@@ -116,7 +120,7 @@ readdir:
 call getsector
 legalcharacters=xrange('a','z') || xrange(0,9) || ' ' || '@'
 attribs.='FEL'; attribs.00='ASC'; attribs.01='BIN'; attribs.80='BAS'; attribs.10='WRP'; attribs.20='RDP'; attribs.40='RAW'
-do forever
+do #=1
 	entry=readch(file,16)
 	parse value entry with fn +6 ext +3 attr +1 cluster# +1 .
 	if ~datatype(strip(fn)||strip(ext),'ALPHA') then nop
@@ -127,7 +131,10 @@ do forever
 	attr=c2x(attr)
 	attrib=attribs.attr
 	track#=shiftright(cluster#)
-	say 'Fil:' fn'.'ext 'Attribut:' attrib '($'attr')' 'Cluster:' hexstr(cluster#) 'Spår:' hexstr(track#)
+	say 'Fil' #':' fn'.'ext 'Attribut:' attrib '($'attr')' 'Cluster:' hexstr(cluster#) 'Spår:' hexstr(track#)
+	files.#.name=fn'.'ext
+	files.#.attributes=attr
+	files.#.cluster=c2x(cluster#)
 /*
 	call readtrack(gettrackoffset(c2d(track#)))
 	leave
