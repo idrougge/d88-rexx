@@ -17,6 +17,7 @@ if c2d(label)=0 then label='ej satt'
 say 'Disknamn:' label
 if writeprotect='10'x then say 'Skrivskyddad'
 if writeprotect='00'x then say 'Ej skrivskyddad'
+/* 1D = SS/DD 40 track   2D = DS/DD 40 track   2DD = DS/DD 80 track   2HD = DS/HD 80 track */
 disktypes.='FEL'; disktypes.00='2D'; disktypes.10='2DD'; disktypes.20='2HD'
 densities.='FEL'; densities.00='DD'; densities.40='SD'
 disktype=c2x(disktype)
