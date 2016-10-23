@@ -24,17 +24,18 @@ say 'Typ av diskett:' disktypes.disktype
 disksize=revendian(disksize)
 say 'Diskens storlek:' c2d(disksize) '$'c2x(disksize)
 fattrack=37 /* 35 på 2HD */
-trkoffset=gettrackoffset(fattrack)
-call readtrack trkoffset
+/* Men egentligen ska det vara spår 18 (0x12), huvud 1 och inte spår 37 */
+call seektrack fattrack
+call getsector
 /*
 call seek file,getsectoroffset(1)
 call dumpsector
 */
 call seek file,getsectoroffset(1)
+files.=''
 call readdir
 
 fat.=''
-files.=''
 call parsefat getfat()
 
 
@@ -148,9 +149,8 @@ say 'track#='track#
 call seek file,32,'BEGIN'
 call seek file,track#*4
 offset=readch(file,4)
-say 'Hämtar trackoffset för spår' arg(1)':' c2d(revendian(offset)) '('hexstr(offset)')'
+say 'Hämtade trackoffset för spår' arg(1)':' c2d(revendian(offset)) '('hexstr(offset)')'
 return c2d(revendian(offset))
-return
 
 getsectoroffset: procedure expose sectorsize trackoffset sectorcount
 if arg(1) = 0 then do
@@ -167,12 +167,12 @@ call seek file,trackoffset,'BEGIN'
 return (16+sectorsize)*sector# 
 
 /*
-	Jump to track and read first sector info
+	Jump to track
 */
-readtrack:
-trackoffset=arg(1)
-say 'Söker till position' seek(file,trackoffset,'BEGIN')
-call getsector
+seektrack:
+/* En 2D-disk har bara 80-84 spår, 2DD och 2HD 160-164 spår. */
+trackoffset=gettrackoffset(arg(1))
+say 'Söker till position' trackoffset seek(file,trackoffset,'BEGIN')
 return
 
 dumpsector:
@@ -220,6 +220,12 @@ do while in~=''
 	out = out || temp || ' '
 end
 return strip(out)
+
+/* LSL */
+shiftleft: procedure
+binstr=c2b(arg(1))
+binstr = binstr || '0'
+return b2c(binstr)
 
 /* LSR */
 shiftright: procedure
