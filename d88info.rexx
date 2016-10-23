@@ -23,10 +23,7 @@ disktype=c2x(disktype)
 say 'Typ av diskett:' disktypes.disktype
 disksize=revendian(disksize)
 say 'Diskens storlek:' c2d(disksize) '$'c2x(disksize)
-fattrack=37 /* 35 på 2HD */
-/* Men egentligen ska det vara spår 18 (0x12), huvud 1 och inte spår 37 */
-call seektrack fattrack
-call getsector
+
 /*
 call seek file,getsectoroffset(1)
 call dumpsector
@@ -37,6 +34,7 @@ call readdir
 
 fat.=''
 call parsefat getfat()
+
 
 
 exit
@@ -54,17 +52,31 @@ cluster2physical: procedure
    Cluster 0 = spår 0, sektor 1-8
    Cluster 1 = spår 0, sektor 9-16
    Cluster 2 = spår 1, sektor 1-8
-   o s v ... */
+   o s v ... 
+   Om disketten är dubbelsidig
+   är spår 0 = spår 0, sida 0
+   och spår 1 = spår 0, sida 1
+   */
 cluster = arg(1)
 track = cluster % 2
 /* track = shiftright(cluster) */
 sector = 9 * (cluster // 2)
 return track sector
 
+/* 
+Locate and read FAT for parsing by parsefat procedure
+*/
 getfat:
-call seek file,getsectoroffset(14)
+/* FAT is located on track 18 (0x12), head 1, which equals track 37. 
+   On 2HD disks, it seems to be track 35 instead. */
+if disktypes.disktype='2D'  then fattrack=37
+if disktypes.disktype='2HD' then fattrack=35
+call seektrack fattrack
 return readsector()
 
+/*
+Parse FAT table into "fat." stem
+*/
 parsefat: procedure expose fat.
 fat=arg(1)
 do i=0 to 255
