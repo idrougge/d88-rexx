@@ -36,6 +36,9 @@ exit
 
 readfile:
 file#=arg(1)
+/*
+call open outfile,files.file#.name,'WRITE'
+*/
 cluster#=files.file#.cluster
 say 'Läser fil nr' file#':' files.file#.name 'med start på cluster' cluster#
 clusterptr=fat.cluster#
@@ -69,21 +72,26 @@ end
 return
 
 dumpcluster:
-say 'cluster:' hexstr(readcluster(arg(1),arg(2)))
+say 'cluster' arg(1)':'
+say hexstr(readcluster(arg(1),arg(2)))
 return
 
 readcluster:
-len=arg(2)-1
+len=arg(2)
 parse value cluster2physical(x2d(arg(1))) with track# sector#
-endsector=sector#+len
+endsector=sector#+len-1
 say 'readcluster: cluster' arg(1)', sectors' sector# '-' endsector
+do sector#=sector# for len
 say 'readcluster: track' track# '($'d2x(track#)'), sector' sector#
 call seektrack track#
 call getsector QUIET
 call seeksector sector#
+/*
 return readsector()
+*/
 call dumpsector
-return
+end
+return ''
 
 cluster2physical: procedure
 /* Ett cluster = 8 sektorer
@@ -130,45 +138,6 @@ return
 
 readfat:
 fats.='ERR'; fats.FF='TOM'; fats.FE='SYS'
-call getsector
-sector=readch(file,sectorsize)
-cluster#=0
-dumpsector
-return
-
-readfat__:
-fats.='ERR'; fats.FF='TOM'; fats.FE='SYS'
-call getsector
-sector=readch(file,sectorsize)
-cluster#=0
-do sectorsize
-	parse var sector cluster +1 sector
-	cluster=c2x(cluster)
-	select
-		when fats.cluster='TOM' then do
-			say 'Clusternummer' '$'d2x(cluster#) 'tomt'
-			fat.cluster#=fats.cluster
-			cluster#=cluster#+1
-		end
-		when fats.cluster='SYS' then do
-			say 'Clusternummer' '$'d2x(cluster#) 'reserverat'
-			fat.cluster#=fats.cluster
-			cluster#=cluster#+1
-		end
-		otherwise do
-			select
-				when cluster<='9F' then do
-					say 'Clusternummer:' '$'cluster
-					cluster#=x2d(cluster)
-				end
-				when cluster>='C1' | cluster <= 'C8' then do
-					say 'Filslut:' '$'cluster '('right(cluster,1) 'sektorer)'
-				end
-				otherwise say 'Ogiltigt clustervärde:' '$'cluster
-			end
-		end
-	end
-end
 return
 
 readdir:
