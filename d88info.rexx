@@ -29,12 +29,13 @@ say 'Diskens storlek:' c2d(disksize) '$'c2x(disksize)
 call seek file,getsectoroffset(1)
 call dumpsector
 */
-call seek file,getsectoroffset(1)
-files.=''
-call readdir
 
 fat.=''
 call parsefat getfat()
+
+files.=''
+call readdir
+
 
 
 
@@ -43,8 +44,6 @@ fat=getfat()
 
 call seek file,getsectoroffset(14)
 call dumpsector
-exit
-call seek file,getsectoroffset(14)
 exit
 
 cluster2physical: procedure
@@ -131,6 +130,8 @@ end
 return
 
 readdir:
+call seektrack fattrack
+call seek file,getsectoroffset(1)
 call getsector
 legalcharacters=xrange('a','z') || xrange(0,9) || ' ' || '@'
 attribs.='FEL'; attribs.00='ASC'; attribs.01='BIN'; attribs.80='BAS'; attribs.10='WRP'; attribs.20='RDP'; attribs.40='RAW'
