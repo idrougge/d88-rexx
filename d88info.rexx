@@ -30,15 +30,16 @@ call parsefat getfat()
 files.=''
 call readdir
 
-call readfile 2
+call readfile 1
 
+call close outfile
 exit
 
 readfile:
 file#=arg(1)
-/*
+
 call open outfile,files.file#.name,'WRITE'
-*/
+
 cluster#=files.file#.cluster
 say 'Läser fil nr' file#':' files.file#.name 'med start på cluster' cluster#
 clusterptr=fat.cluster#
@@ -81,6 +82,7 @@ len=arg(2)
 parse value cluster2physical(x2d(arg(1))) with track# sector#
 endsector=sector#+len-1
 say 'readcluster: cluster' arg(1)', sectors' sector# '-' endsector
+sector='IGGY'
 do sector#=sector# for len
 say 'readcluster: track' track# '($'d2x(track#)'), sector' sector#
 call seektrack track#
@@ -88,10 +90,12 @@ call getsector QUIET
 call seeksector sector#
 /*
 return readsector()
-*/
 call dumpsector
+*/
+sector = sector || readsector()
 end
-return ''
+say 'writech:' writech(outfile,sector)
+return sector
 
 cluster2physical: procedure
 /* Ett cluster = 8 sektorer
