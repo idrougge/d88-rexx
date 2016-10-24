@@ -4,26 +4,25 @@ options AREXX_BIFS
 options AREXX_SEMANTICS
 filename=arg(1)
 if filename='' then filename='/Users/iggy/Downloads/NEC PC 8801 [TOSEC]/NEC PC-8801 - Applications (TOSEC-v2007-08-30_CM)/NEC PC-8801FE N88 BASIC v2.3 (1988)(Microsoft).d88'
-say 'fil:' filename
 if ~open(file,filename,'READ') then do
-	say 'Kunde inte öppna fil!'
+	say 'Could not open file!'
 	exit 10
 end
 header=readch(file,32)
-say 'Läste header på' length(header) 'byte:'
+say 'Reading header of' length(header) 'bytes:'
 say hexstr(header)
 parse value header with label +17 . +9 writeprotect +1 disktype +1 disksize +4 .
 if c2d(label)=0 then label='ej satt'
-say 'Disknamn:' label
-if writeprotect='10'x then say 'Skrivskyddad'
-if writeprotect='00'x then say 'Ej skrivskyddad'
+say 'Disk label:' label
+if writeprotect='10'x then say 'Write protected'
+if writeprotect='00'x then say 'Not protected'
 /* 1D = SS/DD 40 track   2D = DS/DD 40 track   2DD = DS/DD 80 track   2HD = DS/HD 80 track */
-disktypes.='FEL'; disktypes.00='2D'; disktypes.10='2DD'; disktypes.20='2HD'
-densities.='FEL'; densities.00='DD'; densities.40='SD'
+disktypes.='ERR'; disktypes.00='2D'; disktypes.10='2DD'; disktypes.20='2HD'
+densities.='ERR'; densities.00='DD'; densities.40='SD'
 disktype=c2x(disktype)
-say 'Typ av diskett:' disktypes.disktype
+say 'Type of disk:' disktypes.disktype
 disksize=revendian(disksize)
-say 'Diskens storlek:' c2d(disksize) '$'c2x(disksize)
+say 'Disk size:' c2d(disksize) '$'c2x(disksize)
 
 fat.=''
 call parsefat getfat()
@@ -40,35 +39,40 @@ file#=arg(1)
 cluster#=files.file#.cluster
 say 'Läser fil nr' file#':' files.file#.name 'med start på cluster' cluster#
 clusterptr=fat.cluster#
+/* clusterptr='' */
 /* do while cluster# < 'C0' */
-do while clusterptr < 'C0'
-/* do while fat.cluster# < 'C0' */
+/*do while clusterptr < 'C0'
+	*/
+do while fat.cluster# < 'C0'
+	say 'clusterloop'
 	say 'cluster#='cluster#
 	clusterptr=fat.cluster#
 	say 'clusterptr='clusterptr
-	call readcluster cluster#,8
+	call dumpcluster cluster#,8
 	/* call readcluster clusterptr,8 */
 	/* clusterptr=fat.clusterptr */
 	
 	cluster#=fat.cluster#
 end
+say 'Lämnade clusterloop'
+say 'cluster#='cluster#
 clusterptr=fat.cluster#
 say 'clusterptr='clusterptr
 if left(clusterptr,1)='C' then do
 	len=right(clusterptr,1)
-	call readcluster clusterptr,len
-end
-return
-call seeksector 1
-do j=1 to sectorcount
-	say 'j='j
-	call seeksector j
-	call getsector
+	say 'len:' len
+	/*
+	call dumpcluster clusterptr,len
+	*/
+	call dumpcluster cluster#,len
 end
 return
 
+dumpcluster:
+say 'cluster:' hexstr(readcluster(arg(1),arg(2)))
+return
+
 readcluster:
-/* cluster#=x2d(arg(1)) */
 len=arg(2)-1
 parse value cluster2physical(x2d(arg(1))) with track# sector#
 endsector=sector#+len
@@ -77,6 +81,7 @@ say 'readcluster: track' track# '($'d2x(track#)'), sector' sector#
 call seektrack track#
 call getsector QUIET
 call seeksector sector#
+return readsector()
 call dumpsector
 return
 
