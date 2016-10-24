@@ -25,26 +25,60 @@ say 'Typ av diskett:' disktypes.disktype
 disksize=revendian(disksize)
 say 'Diskens storlek:' c2d(disksize) '$'c2x(disksize)
 
-/*
-call seek file,getsectoroffset(1)
-call dumpsector
-*/
-
 fat.=''
 call parsefat getfat()
 
 files.=''
 call readdir
 
-
-
+call readfile 2
 
 exit
-fat=getfat()
 
-call seek file,getsectoroffset(14)
+readfile:
+file#=arg(1)
+cluster#=files.file#.cluster
+say 'Läser fil nr' file#':' files.file#.name 'med start på cluster' cluster#
+clusterptr=fat.cluster#
+/* do while cluster# < 'C0' */
+do while clusterptr < 'C0'
+/* do while fat.cluster# < 'C0' */
+	say 'cluster#='cluster#
+	clusterptr=fat.cluster#
+	say 'clusterptr='clusterptr
+	call readcluster cluster#,8
+	/* call readcluster clusterptr,8 */
+	/* clusterptr=fat.clusterptr */
+	
+	cluster#=fat.cluster#
+end
+clusterptr=fat.cluster#
+say 'clusterptr='clusterptr
+if left(clusterptr,1)='C' then do
+	len=right(clusterptr,1)
+	call readcluster clusterptr,len
+end
+return
+call seeksector 1
+do j=1 to sectorcount
+	say 'j='j
+	call seeksector j
+	call getsector
+end
+return
+
+readcluster:
+/* cluster#=x2d(arg(1)) */
+len=arg(2)-1
+parse value cluster2physical(x2d(arg(1))) with track# sector#
+endsector=sector#+len
+say 'readcluster: cluster' arg(1)', sectors' sector# '-' endsector
+say 'readcluster: track' track# '($'d2x(track#)'), sector' sector#
+call seektrack track#
+call getsector QUIET
+call seeksector sector#
 call dumpsector
-exit
+return
 
 cluster2physical: procedure
 /* Ett cluster = 8 sektorer
@@ -60,18 +94,20 @@ cluster2physical: procedure
 cluster = arg(1)
 track = cluster % 2
 /* track = shiftright(cluster) */
-sector = 9 * (cluster // 2)
+sector = 8 * (cluster // 2) + 1
 return track sector
 
 /* 
 Locate and read FAT for parsing by parsefat procedure
 */
 getfat:
-/* FAT is located on track 18 (0x12), head 1, which equals track 37. 
+/* FAT is located on track 18 (12h), head 1, which equals track 37. 
    On 2HD disks, it seems to be track 35 instead. */
 if disktypes.disktype='2D'  then fattrack=37
 if disktypes.disktype='2HD' then fattrack=35
 call seektrack fattrack
+call getsector
+call seeksector 14
 return readsector()
 
 /*
@@ -79,6 +115,7 @@ Parse FAT table into "fat." stem
 */
 parsefat: procedure expose fat.
 fat=arg(1)
+/* say 'FAT:' hexstr(fat) */
 do i=0 to 255
 	parse var fat nr +1 fat
 	j=right(d2x(i),2,0)
@@ -131,7 +168,7 @@ return
 
 readdir:
 call seektrack fattrack
-call seek file,getsectoroffset(1)
+call seeksector 1
 call getsector
 legalcharacters=xrange('a','z') || xrange(0,9) || ' ' || '@'
 attribs.='FEL'; attribs.00='ASC'; attribs.01='BIN'; attribs.80='BAS'; attribs.10='WRP'; attribs.20='RDP'; attribs.40='RAW'
@@ -189,13 +226,18 @@ trackoffset=gettrackoffset(arg(1))
 say 'Söker till position' trackoffset seek(file,trackoffset,'BEGIN')
 return
 
+seeksector:
+say 'Söker till sektor' arg(1)
+call seek file,getsectoroffset(arg(1))
+return
+
 dumpsector:
 say 'Dumpar sektor:'
 say hexstr( readsector() )
 return
 
 readsector:
-call getsector
+call getsector QUIET
 return readch(file,sectorsize)
 
 /*
@@ -203,21 +245,19 @@ return readch(file,sectorsize)
 */
 getsector:
 header=readch(file,16)
-say 'Spårheader:' hexstr(header)
 parse value header with c +1 h +1 r +1 n +1 sectorcount +2 density +1 deleted +1, 
 	status +1 . +5 sectorsize +2 .
+sectorcount=c2d(revendian(sectorcount))
+density=c2x(density)
+sectorsize=c2d(revendian(sectorsize))
+if arg(1)=='QUIET' then return
+say 'Spårheader:' hexstr(header)
 say 'C:' hexstr(c) 'H:' hexstr(h) 'R:' hexstr(r) 'N:' hexstr(n)
 say 'Spår:' c2d(c) 'Huvud:' c2d(h) 'Sektor:' c2d(r) 'Sektorlängd:' c2d(n)
-sectorcount=c2d(revendian(sectorcount))
 say 'Antal sektorer:' sectorcount
-density=c2x(density)
 say 'Densitet:' densities.density
-say 'Datastorlek:' c2d(revendian(sectorsize)) hexstr(sectorsize)
-sectorsize=c2d(revendian(sectorsize))
+say 'Datastorlek:' sectorsize hexstr(revendian(d2c(sectorsize)))
 say 'Spårets längd:' sectorcount*sectorsize 'byte ('sectorcount'*'sectorsize')'
-/*
-say 'Nästa spår:' sectorcount*sectorsize+sectorcount*16+688
-*/
 return
 
 /* Endian swap */
