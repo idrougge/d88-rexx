@@ -82,7 +82,7 @@ len=arg(2)
 parse value cluster2physical(x2d(arg(1))) with track# sector#
 endsector=sector#+len-1
 say 'readcluster: cluster' arg(1)', sectors' sector# '-' endsector
-sector='IGGY'
+sector=''
 do sector#=sector# for len
 say 'readcluster: track' track# '($'d2x(track#)'), sector' sector#
 call seektrack track#
