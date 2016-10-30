@@ -37,25 +37,16 @@ exit
 
 readfile:
 file#=arg(1)
-
 call open outfile,files.file#.name,'WRITE'
-
 cluster#=files.file#.cluster
 say 'Läser fil nr' file#':' files.file#.name 'med start på cluster' cluster#
 clusterptr=fat.cluster#
-/* clusterptr='' */
-/* do while cluster# < 'C0' */
-/*do while clusterptr < 'C0'
-	*/
 do while fat.cluster# < 'C0'
 	say 'clusterloop'
 	say 'cluster#='cluster#
 	clusterptr=fat.cluster#
 	say 'clusterptr='clusterptr
 	call dumpcluster cluster#,8
-	/* call readcluster clusterptr,8 */
-	/* clusterptr=fat.clusterptr */
-	
 	cluster#=fat.cluster#
 end
 say 'Lämnade clusterloop'
@@ -65,9 +56,6 @@ say 'clusterptr='clusterptr
 if left(clusterptr,1)='C' then do
 	len=right(clusterptr,1)
 	say 'len:' len
-	/*
-	call dumpcluster clusterptr,len
-	*/
 	call dumpcluster cluster#,len
 end
 return
@@ -88,10 +76,6 @@ say 'readcluster: track' track# '($'d2x(track#)'), sector' sector#
 call seektrack track#
 call getsector QUIET
 call seeksector sector#
-/*
-return readsector()
-call dumpsector
-*/
 sector = sector || readsector()
 end
 say 'writech:' writech(outfile,sector)
