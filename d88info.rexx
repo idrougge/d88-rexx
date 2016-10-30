@@ -3,32 +3,7 @@
 options AREXX_BIFS
 options AREXX_SEMANTICS
 filename=arg(1)
-if filename='' then filename='/Users/iggy/Downloads/NEC PC 8801 [TOSEC]/NEC PC-8801 - Applications (TOSEC-v2007-08-30_CM)/NEC PC-8801FE N88 BASIC v2.3 (1988)(Microsoft).d88'
-if ~open(file,filename,'READ') then do
-	say 'Could not open file!'
-	exit 10
-end
-header=readch(file,32)
-say 'Reading header of' length(header) 'bytes:'
-say hexstr(header)
-parse value header with label +17 . +9 writeprotect +1 disktype +1 disksize +4 .
-if c2d(label)=0 then label='ej satt'
-say 'Disk label:' label
-if writeprotect='10'x then say 'Write protected'
-if writeprotect='00'x then say 'Not protected'
-/* 1D = SS/DD 40 track   2D = DS/DD 40 track   2DD = DS/DD 80 track   2HD = DS/HD 80 track */
-disktypes.='ERR'; disktypes.00='2D'; disktypes.10='2DD'; disktypes.20='2HD'
-densities.='ERR'; densities.00='DD'; densities.40='SD'
-disktype=c2x(disktype)
-say 'Type of disk:' disktypes.disktype
-disksize=revendian(disksize)
-say 'Disk size:' c2d(disksize) '$'c2x(disksize)
-
-fat.=''
-call parsefat getfat()
-
-files.=''
-call readdir
+call init
 
 call readfile 1
 
@@ -49,7 +24,6 @@ do while fat.cluster# < 'C0'
 	call dumpcluster cluster#,8
 	cluster#=fat.cluster#
 end
-say 'Lämnade clusterloop'
 say 'cluster#='cluster#
 clusterptr=fat.cluster#
 say 'clusterptr='clusterptr
@@ -220,6 +194,38 @@ say 'Antal sektorer:' sectorcount
 say 'Densitet:' densities.density
 say 'Datastorlek:' sectorsize hexstr(revendian(d2c(sectorsize)))
 say 'Spårets längd:' sectorcount*sectorsize 'byte ('sectorcount'*'sectorsize')'
+return
+
+/*
+	Open image file and read disk information
+*/
+init:
+if filename='' then filename='/Users/iggy/Downloads/NEC PC 8801 [TOSEC]/NEC PC-8801 - Applications (TOSEC-v2007-08-30_CM)/NEC PC-8801FE N88 BASIC v2.3 (1988)(Microsoft).d88'
+if ~open(file,filename,'READ') then do
+	say 'Could not open file!'
+	exit 10
+end
+header=readch(file,32)
+say 'Reading header of' length(header) 'bytes:'
+say hexstr(header)
+parse value header with label +17 . +9 writeprotect +1 disktype +1 disksize +4 .
+if c2d(label)=0 then label='ej satt'
+say 'Disk label:' label
+if writeprotect='10'x then say 'Write protected'
+if writeprotect='00'x then say 'Not protected'
+/* 1D = SS/DD 40 track   2D = DS/DD 40 track   2DD = DS/DD 80 track   2HD = DS/HD 80 track */
+disktypes.='ERR'; disktypes.00='2D'; disktypes.10='2DD'; disktypes.20='2HD'
+densities.='ERR'; densities.00='DD'; densities.40='SD'
+disktype=c2x(disktype)
+say 'Type of disk:' disktypes.disktype
+disksize=revendian(disksize)
+say 'Disk size:' c2d(disksize) '$'c2x(disksize)
+
+fat.=''
+call parsefat getfat()
+
+files.=''
+call readdir
 return
 
 /* Endian swap */
