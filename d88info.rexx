@@ -7,14 +7,17 @@ call init
 
 call readfile 1
 
-call close outfile
 exit
 
+/*
+	Read a file and write it to disk
+	Parameters: file number
+*/
 readfile:
 file#=arg(1)
 call open outfile,files.file#.name,'WRITE'
 cluster#=files.file#.cluster
-say 'Läser fil nr' file#':' files.file#.name 'med start på cluster' cluster#
+say 'Reading file #' file#':' files.file#.name 'starting at cluster' cluster#
 clusterptr=fat.cluster#
 do while fat.cluster# < 'C0'
 	say 'clusterloop'
@@ -32,13 +35,21 @@ if left(clusterptr,1)='C' then do
 	say 'len:' len
 	call dumpcluster cluster#,len
 end
+call close outfile
 return
 
+/*
+	Read a cluster and display on console as hex
+*/
 dumpcluster:
 say 'cluster' arg(1)':'
 say hexstr(readcluster(arg(1),arg(2)))
 return
 
+/*
+	Read and return a cluster while writing it to a file
+	Parameters: cluster number, cluster size
+*/
 readcluster:
 len=arg(2)
 parse value cluster2physical(x2d(arg(1))) with track# sector#
@@ -52,9 +63,12 @@ call getsector QUIET
 call seeksector sector#
 sector = sector || readsector()
 end
-say 'writech:' writech(outfile,sector)
+say 'wrote' writech(outfile,sector) 'bytes'
 return sector
 
+/*
+	Translate cluster number to track and sector
+*/
 cluster2physical: procedure
 /* Ett cluster = 8 sektorer
    Ett spår = 16 sektorer
@@ -86,7 +100,7 @@ call seeksector 14
 return readsector()
 
 /*
-Parse FAT table into "fat." stem
+	Parse FAT table into "fat." stem
 */
 parsefat: procedure expose fat.
 fat=arg(1)
@@ -98,22 +112,21 @@ do i=0 to 255
 end
 return
 
-readfat:
-fats.='ERR'; fats.FF='TOM'; fats.FE='SYS'
-return
-
+/*
+	Read and display directory
+*/
 readdir:
 call seektrack fattrack
 call seeksector 1
 call getsector
 legalcharacters=xrange('a','z') || xrange(0,9) || ' ' || '@'
-attribs.='FEL'; attribs.00='ASC'; attribs.01='BIN'; attribs.80='BAS'; attribs.10='WRP'; attribs.20='RDP'; attribs.40='RAW'
+attribs.='ERR'; attribs.00='ASC'; attribs.01='BIN'; attribs.80='BAS'; attribs.10='WRP'; attribs.20='RDP'; attribs.40='RAW'
 do #=1
 	entry=readch(file,16)
 	parse value entry with fn +6 ext +3 attr +1 cluster# +1 .
 	if ~datatype(strip(fn)||strip(ext),'ALPHA') then nop
 	if verify(fn||ext,legalcharacters) > 0 then do
-		say 'Ogiltigt filnamn:' hexstr(fn||ext)
+		say 'Illegal filename:' hexstr(fn||ext)
 		return
 	end
 	attr=c2x(attr)
@@ -130,26 +143,34 @@ do #=1
 end
 return
 
+/*
+	Get track offset from beginning of file
+	Offsets are stored in a table beginning at byte 32.
+	Each entry is a little-endian longword.
+*/
 gettrackoffset: procedure
 track#=arg(1)
 say 'track#='track#
 call seek file,32,'BEGIN'
 call seek file,track#*4
 offset=readch(file,4)
-say 'Hämtade trackoffset för spår' arg(1)':' c2d(revendian(offset)) '('hexstr(offset)')'
+say 'Fetch offset for track' arg(1)':' c2d(revendian(offset)) '('hexstr(offset)')'
 return c2d(revendian(offset))
 
+/*
+	Get sector offset from beginning of file
+*/
 getsectoroffset: procedure expose sectorsize trackoffset sectorcount
 if arg(1) = 0 then do
-	say 'Sektornummer börjar på 1!'
+	say 'Sector numbers begin at 1, not 0!'
 	return
 end
 if arg(1) > sectorcount then do
-	say 'Sektornummer för högt!'
+	say 'Sector number too high!'
 	return
 end
 sector# = arg(1) - 1
-say 'Hämtar offset till sektor' arg(1)
+say 'Fetch offset for sector' arg(1)
 call seek file,trackoffset,'BEGIN'
 return (16+sectorsize)*sector# 
 
@@ -159,25 +180,34 @@ return (16+sectorsize)*sector#
 seektrack:
 /* En 2D-disk har bara 80-84 spår, 2DD och 2HD 160-164 spår. */
 trackoffset=gettrackoffset(arg(1))
-say 'Söker till position' trackoffset seek(file,trackoffset,'BEGIN')
+say 'Seek to position' trackoffset seek(file,trackoffset,'BEGIN')
 return
 
+/*
+	Jump to sector
+*/
 seeksector:
-say 'Söker till sektor' arg(1)
+say 'Seek to sector' arg(1)
 call seek file,getsectoroffset(arg(1))
 return
 
+/*
+	Dump sector to console as hex
+*/
 dumpsector:
-say 'Dumpar sektor:'
+say 'Dumping sector:'
 say hexstr( readsector() )
 return
 
+/*
+	Read and return sector data
+*/
 readsector:
 call getsector QUIET
 return readch(file,sectorsize)
 
 /*
-	Read sector and show information
+	Read sector header and show information
 */
 getsector:
 header=readch(file,16)
@@ -187,13 +217,13 @@ sectorcount=c2d(revendian(sectorcount))
 density=c2x(density)
 sectorsize=c2d(revendian(sectorsize))
 if arg(1)=='QUIET' then return
-say 'Spårheader:' hexstr(header)
+say 'Sector header:' hexstr(header)
 say 'C:' hexstr(c) 'H:' hexstr(h) 'R:' hexstr(r) 'N:' hexstr(n)
-say 'Spår:' c2d(c) 'Huvud:' c2d(h) 'Sektor:' c2d(r) 'Sektorlängd:' c2d(n)
-say 'Antal sektorer:' sectorcount
-say 'Densitet:' densities.density
-say 'Datastorlek:' sectorsize hexstr(revendian(d2c(sectorsize)))
-say 'Spårets längd:' sectorcount*sectorsize 'byte ('sectorcount'*'sectorsize')'
+say 'Track:' c2d(c) 'Head:' c2d(h) 'Sector:' c2d(r) 'Sector length:' c2d(n)
+say '# of sectors:' sectorcount
+say 'Density:' densities.density
+say 'Data size:' sectorsize hexstr(revendian(d2c(sectorsize)))
+say 'Track length:' sectorcount*sectorsize 'bytes ('sectorcount'*'sectorsize')'
 return
 
 /*
@@ -209,7 +239,7 @@ header=readch(file,32)
 say 'Reading header of' length(header) 'bytes:'
 say hexstr(header)
 parse value header with label +17 . +9 writeprotect +1 disktype +1 disksize +4 .
-if c2d(label)=0 then label='ej satt'
+if c2d(label)=0 then label='NONE'
 say 'Disk label:' label
 if writeprotect='10'x then say 'Write protected'
 if writeprotect='00'x then say 'Not protected'
@@ -221,9 +251,12 @@ say 'Type of disk:' disktypes.disktype
 disksize=revendian(disksize)
 say 'Disk size:' c2d(disksize) '$'c2x(disksize)
 
+/* FAT magic numbers */
+fats.='ERR'; fats.FF='___'; fats.FE='SYS'
+/* Initialise FAT table */
 fat.=''
 call parsefat getfat()
-
+/* Read directory */
 files.=''
 call readdir
 return
